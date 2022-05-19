@@ -1,5 +1,5 @@
 # Rust Macros 
 
-> Declarative Macros
+- Declarative Macros
 
-> Procedural Macros
+- Procedural Macros
