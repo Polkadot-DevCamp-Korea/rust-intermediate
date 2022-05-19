@@ -1,6 +1,6 @@
 # rust-intermediate
 
-<img src="rust.png" width="600" height="300">
+<img src="./images/rust.png" width="600" height="300">
 
 Mastering Rust for Substrate
 
