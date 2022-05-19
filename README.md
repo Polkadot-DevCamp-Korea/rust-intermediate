@@ -1,6 +1,6 @@
 # rust-intermediate
 
-![rust](./images/Rust.png)
+![rust](images/Rust.png)
 
 Mastering Rust for Substrate
 
