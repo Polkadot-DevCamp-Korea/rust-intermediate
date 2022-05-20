@@ -1,0 +1,12 @@
+[package]
+name = "template"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+frame-support = {version = "0.1.0", path = "../frame/support"}
+pallet-hello = {version = "0.1.0", path = "../frame/hello-substrate"}
+pallet-balances = {version = "0.1.0", path = "../frame/balances"}
