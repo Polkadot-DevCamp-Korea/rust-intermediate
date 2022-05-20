@@ -1,1 +1,4 @@
 images
+**/.DS_Store
+**/target
+*.lock
