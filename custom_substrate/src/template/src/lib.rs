@@ -23,6 +23,18 @@ impl pallet_hello::Config for Runtime {
 
 impl pallet_balances::Config for Runtime {
     type Event = Event;
+    type Balances = u32;
+    type AccountId = u32;
 }
 
+// Our goal is make "construct_runtime" macros like real-Substrate code
+/* construct_runtime!(
+    pub enum Runtime 
+    where
+    {
+        Hello: pallet_hello
+        Balances: pallet_balances
+    }
+)
+*/
 pub enum Runtime {}
