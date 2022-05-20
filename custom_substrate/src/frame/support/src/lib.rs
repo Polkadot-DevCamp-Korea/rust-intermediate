@@ -10,4 +10,10 @@ mod tests {
 pub mod pallet_prelude {
 
     pub use std::marker::PhantomData;
+    pub use std::{
+        collections::HashMap, 
+        hash::Hash,
+        default::Default,
+    };
+    pub use num::{Zero, CheckedAdd, CheckedSub};
 }
