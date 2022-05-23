@@ -7,7 +7,9 @@ Deep dive into Rust generics & traits
 > Rust Book
 
 [Generics & Traits](https://doc.rust-lang.org/book/ch10-00-generics.html)
+
 [Generics](https://doc.rust-lang.org/rust-by-example/generics.html)
+
 [Traits](https://doc.rust-lang.org/rust-by-example/trait.html)
 
 > Youtube 
