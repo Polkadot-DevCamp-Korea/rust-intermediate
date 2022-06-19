@@ -7,6 +7,10 @@ mod tests {
     }
 }
 
+pub use frame_support_procedural::{
+    construct_runtime
+};
+
 pub mod pallet_prelude {
 
     pub use std::marker::PhantomData;

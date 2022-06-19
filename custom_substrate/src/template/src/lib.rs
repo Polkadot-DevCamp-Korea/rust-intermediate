@@ -1,7 +1,9 @@
 
 use pallet_hello;
 use pallet_balances;
-
+use frame_support::{
+    construct_runtime
+};
 // Aggregate all the pallet event types
 pub struct Event {}
 
@@ -28,13 +30,12 @@ impl pallet_balances::Config for Runtime {
 }
 
 // Our goal is make "construct_runtime" macros like real-Substrate code
-/* construct_runtime!(
+construct_runtime!(
     pub enum Runtime 
-    where
     {
         Hello: pallet_hello
         Balances: pallet_balances
     }
-)
-*/
+);
+
 pub enum Runtime {}
