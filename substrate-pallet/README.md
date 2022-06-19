@@ -8,7 +8,7 @@
 
 > Goal
 
-1. Get close to Rust
+1. Get friendly with Rust
 2. Understand Substrate
 
 ## Reference
