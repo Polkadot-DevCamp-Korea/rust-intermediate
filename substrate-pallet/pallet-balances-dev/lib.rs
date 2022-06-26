@@ -21,21 +21,27 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         
+        // 시완
         #[pallet::weight]
         pub fn transfer(origin, dest) {}
 
+        // 명하
         #[pallet::weight] 
         pub fn set_balance(origin, who, new_free, new_reserved) {}
 
+        // 현택
         #[pallet::weight]
         pub fn force_transfer(origin, source, dest, value) {}
-
+        
+        // 경원
         #[pallet::weight]
         pub fn transfer_keep_alive(origin, dest, value) {}
 
+        // 혜민 
         #[pallet::weight]
         pub fn transfer_all(origin, dest, keep_alive) {}
 
+        // 소윤
         #[pallet::weight]
         pub fn force_unreserve(origin, who, amount) {} 
     }
@@ -70,14 +76,14 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn total_issuance)]
     pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<>; 
-
+    
     #[pallet::storage]
     pub type Account<T: Config<I>, I: 'static = ()> = StorageMap<>;
-
+ 
     #[pallet::storage]
     #[pallet::getter(fn locks)]
     pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<>;
-
+    
     #[pallet::storage]
     #[pallet:getter(fn reserves)]
     pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<>;
@@ -171,30 +177,43 @@ pub mod pallet {
     // internal/external function
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         
+        // 현택
         pub fn free_balance(who) -> T::Balance {}
 
+        // 명하
         pub fn usable_balance(who) -> T::Balance {}
 
+        // 소윤 
         pub fn usable_balance_for_fees(who) -> T::Balance {}
 
+        // 시완
         pub fn reserved_balance(who) -> T::Balance {}
 
+        // 경원
         fn account(who) -> AccountData<T::Balance> {}
 
+        // 소윤 
         fn post_mutation(_who, new) -> (Option<AccountData<T::Balance>>, Option<NegativeImbalance<T, I>>) {}
 
+        // 혜민
         fn deposit_consequence(_who, amount, account, mint) -> DepositConsequence {}
 
+        // 시완 
         fn withdraw_consequence(who, amount, account) -> WithdrawConsequnce<T::Balance> {}
 
+        // 명하
         pub fn mutate_account<R>(who, f) -> Result<R, DispatchError> {}
 
+        //현택
         fn try_mutate_account<R, E: From<DispatchError>> (who, f) -> Result<R, E> {}
 
+        // 소윤
         fn try_mutate_account_with_dust<R, E: From<DispatchError>>(who, f) -> Result<R, DustCleaner<T, I>, E> {}
 
+        // 혜민 
         fn update_locks(who, locks) {}
 
+        // 경원
         fn do_transfer_reserved(slashed, beneficiary, value, best_effort, status) -> Result<T::Balance, DispatchError> {}
     }
 
