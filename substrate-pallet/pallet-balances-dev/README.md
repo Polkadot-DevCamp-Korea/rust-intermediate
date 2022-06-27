@@ -8,7 +8,7 @@ Deep dive into Balances pallet
 > Schemes of Balance Pallet withouut any types/logic
 > 
 ````
-```
+```rust
 1. Dispatch Calls
 pub fn transfer() 
 pub fn set_balance()
