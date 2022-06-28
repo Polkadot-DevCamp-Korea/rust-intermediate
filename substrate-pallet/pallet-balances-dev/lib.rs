@@ -43,7 +43,30 @@ pub mod pallet {
 
         // 소윤
         #[pallet::weight]
-        pub fn force_unreserve(origin, who, amount) {} 
+        pub fn force_unreserve(
+            origin: OriginFor<T>, 
+            who: <T::LookUp as StaticLookUp>::Source, 
+            amount: T::Balance,
+        ) -> DispatchResult {
+            ensure_root(origin)?; // only sudo can call
+            let who = T::LookUp::lookup(who)?;
+            let _leftover = <Self as ReservableCurrency<_>>::unreserve(&who, amount)
+            
+            Ok(())
+        } 
+
+        // impl<T: Config> StaticLookup for Pallet<T> {
+        //     type Source = MultiAddress<T::AccountId, T::AccountIndex>;
+        //     type Target = T::AccountId;
+        
+        //     fn lookup(a: Self::Source) -> Result<Self::Target, LookupError> {
+        //         Self::lookup_address(a).ok_or(LookupError)
+        //     }
+        
+        //     fn unlookup(a: Self::Target) -> Self::Source {
+        //         MultiAddress::Id(a)
+        //     }
+        // }
     }
 
     #[pallet::event]
