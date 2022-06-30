@@ -6,7 +6,7 @@ pub mod pallet {
         type Balance
         type DustRemoval
         type Event
-        type ExistentialDeposit
+        type ExistentialDeposit: Get<Self::Balance>;
         type AccountStore
         type WeightInfo
         type MaxLocks
@@ -158,23 +158,35 @@ pub mod pallet {
     }
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-    pub struct ReserveDate<ReserveIdentifier, Balance> {
+    pub struct ReserveData<ReserveIdentifier, Balance> {
         pub id,
         pub amount,
     }
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
     pub struct AccountData<Balance> {
-        pub free,
-        pub reserved,
-        pub misc_frozen,
-        pub fee_frozen,
+        pub free: Balance,
+        pub reserved: Balance,
+        pub misc_frozen: Balance,
+        pub fee_frozen: Balance,
     }
 
     impl<Balance: Saturating + Copy + Ord> AccountData<Balance> {
-        fn usable(&self, reasons: Reasons) -> Balance {}
-        fn frozen(&self, reasons: Reasons) -> Balance {}
-        fn total(&self) -> Balance {}
+        fn usable(&self, reasons: Reasons) -> Balance {
+            // free - frozen = usable
+            self.free.saturating_sub(self.frozen(reasons))
+        }
+        fn frozen(&self, reasons: Reasons) -> Balance {
+            match reasons {
+                Reasons::All => self.misc_frozen.max(self.fee_frozen), // Take max(misc_frozen, fee_frozen)
+                Reasons::Misc => self.misc_frozen,
+                Reasons::Fee => self.fee_frozen
+            }
+        }
+        fn total(&self) -> Balance {
+            // free + reserved = total
+            self.free.saturating_add(self.reserved)
+        }
     }
 
     #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
@@ -207,7 +219,10 @@ pub mod pallet {
         pub fn usable_balance(who) -> T::Balance {}
 
         // 소윤 
-        pub fn usable_balance_for_fees(who) -> T::Balance {}
+        pub fn usable_balance_for_fees(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+            // free - fee_frozen = usable_balance_for_fee
+            self.account(who.borrow()).usable(Reasons::Fee)
+        }
 
         // 시완
         pub fn reserved_balance(who) -> T::Balance {}
@@ -216,7 +231,27 @@ pub mod pallet {
         fn account(who) -> AccountData<T::Balance> {}
 
         // 소윤 
-        fn post_mutation(_who, new) -> (Option<AccountData<T::Balance>>, Option<NegativeImbalance<T, I>>) {}
+        fn post_mutation(
+            _who: &T::AccountId, // reference 
+            new: AccountData<T::Balance>
+        ) -> (Option<AccountData<T::Balance>>, Option<NegativeImbalance<T, I>>) {
+            // Concept 
+            // Post action for newly created account
+            // returns tuple (account-data, negative-imbalance e.g slashing/dust)
+            
+            // type ExistentialDeposit: Get<Self::Balance>;
+            
+            let total = new.total(); // Free + Reserved
+            if total < T::ExistentialDeposit::get() {
+                if total.is_zero() {
+                    (None, None)
+                } else {
+                    (None, Some(NegativeImbalance::new(total)))
+                }
+            } else {
+                (Some(new), None)
+            }
+        }
 
         // 혜민
         fn deposit_consequence(_who, amount, account, mint) -> DepositConsequence {}
