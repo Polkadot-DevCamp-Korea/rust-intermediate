@@ -240,7 +240,7 @@ pub mod pallet {
             // returns tuple (account-data, negative-imbalance e.g slashing/dust)
             
             // type ExistentialDeposit: Get<Self::Balance>;
-            
+
             let total = new.total(); // Free + Reserved
             if total < T::ExistentialDeposit::get() {
                 if total.is_zero() {
@@ -266,7 +266,33 @@ pub mod pallet {
         fn try_mutate_account<R, E: From<DispatchError>> (who, f) -> Result<R, E> {}
 
         // 소윤
-        fn try_mutate_account_with_dust<R, E: From<DispatchError>>(who, f) -> Result<R, DustCleaner<T, I>, E> {}
+        fn try_mutate_account_with_dust<R, E: From<DispatchError>>(
+            who: &T::AccountId, 
+            f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>
+        ) -> Result<(R, DustCleaner<T, I>), E> {
+
+            // try_mutate_exists => Some / None
+            // maybe_account => AccountData
+            // account => AccountData
+            let result = T::AccountStore.try_mutate_exists(who, |maybe_account| {
+                let is_new = maybe_account.is_none(); // if account stored in AccountStore, False else True
+                let mut account = maybe_account.take().unwrap_or_default() // Default = Endowed account(pre-funded account). Most account would have no endowment
+                f(&mut account, is_new).map(move |result| {
+                    let maybe_endowed = if is_new { Some(account.free) } else None;
+                    let maybe_account_maybe_dust = Self::post_mutation(who, account); // If account is not dust, it would return account itself
+                    *maybe_account = maybe_account_maybe_dust.0; // Change the value inside maybe_account after 'post_mutation' => None / account
+                    (maybe_endowed, maybe_account_maybe_dust.1, result)
+                })
+            })
+
+            result.map(|maybe_endowed, maybe_dust, result| {
+                if let Some(endowed) = maybe_endowed {
+                    Self::deposit_event(Event::Endowed {account: who.clone(), free_balance: endowed})
+                }
+                let dust_cleaner = DustCleaner(maybe_dust.map(|dust| (who.clone(), dust)))
+                (result, dust_cleaner)
+            })
+        }
 
         // 혜민 
         fn update_locks(who, locks) {}
