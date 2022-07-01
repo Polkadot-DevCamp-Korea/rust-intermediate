@@ -303,17 +303,23 @@ pub mod pallet {
                 let mut account = maybe_account.take().unwrap_or_default() // Default = Endowed account(pre-funded account). Most account would have no endowment
                 f(&mut account, is_new).map(move |result| {
                     let maybe_endowed = if is_new { Some(account.free) } else None;
-                    let maybe_account_maybe_dust = Self::post_mutation(who, account); // If account is not dust, it would return account itself
-                    *maybe_account = maybe_account_maybe_dust.0; // Change the value inside maybe_account after 'post_mutation' => None / account
+                    let maybe_account_maybe_dust = Self::post_mutation(who, account); // If account is not dust, it would return account-data itself
+                    *maybe_account = maybe_account_maybe_dust.0; // (AccountData, Dust). Change the value inside maybe_account after 'post_mutation' => None / account
                     (maybe_endowed, maybe_account_maybe_dust.1, result)
+                    
+                    // maybe_account_maybe_dust.0 -> Accountdata / None
+                    // maybe_account_maybe_dust.1 -> Dust / None
+                    // result -> Result<R ,E>. R: Generic / E: Generic
+                    // Any result type return from 'f' is acceptable since it is generic
                 })
-            })
-
+            }) 
+            
+            // result -> (maybe_endowed, maybe_account_maybe, result)
             result.map(|maybe_endowed, maybe_dust, result| {
-                if let Some(endowed) = maybe_endowed {
+                if let Some(endowed) = maybe_endowed { // if account is endowed, emit 'event'
                     Self::deposit_event(Event::Endowed {account: who.clone(), free_balance: endowed})
                 }
-                let dust_cleaner = DustCleaner(maybe_dust.map(|dust| (who.clone(), dust)))
+                let dust_cleaner = DustCleaner(maybe_dust.map(|dust| (who.clone(), dust))) // DustCleaner = (Option<(AccountId, dust)>)
                 (result, dust_cleaner)
             })
         }
