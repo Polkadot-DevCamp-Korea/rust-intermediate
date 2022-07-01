@@ -237,7 +237,10 @@ pub mod pallet {
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         
         // 현택
-        pub fn free_balance(who) -> T::Balance {}
+        //make reference of accountId by Borrow Trait and check amount of free balance
+        pub fn free_balance(who: impl sp_std::Borrow:borrow<T::AccountId>) -> T::Balance {
+            self.account(who.borrow()).free
+        }
 
         // 명하
         pub fn usable_balance(who) -> T::Balance {}
