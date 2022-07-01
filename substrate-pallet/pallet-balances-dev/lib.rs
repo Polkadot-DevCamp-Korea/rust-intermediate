@@ -31,7 +31,31 @@ pub mod pallet {
 
         // 현택
         #[pallet::weight]
-        pub fn force_transfer(origin, source, dest, value) {}
+        pub fn force_transfer(
+            //prelude of type Origin
+            origin: OriginFor<T>,
+            //StaticLookup for handle multiple types of account address, convert to accountID
+            source: <T::LookUp as StaticLookUp>::Source,
+            dest: <T::LookUp as StaticLookUp>::Source,
+            //encoding compact values
+            #[pallet::compact] value: T::Balance,
+        //type Dispatchable + Result function + PostInfomation
+        ) -> DispatchResultwithPostInfo{
+            //only root can call this function
+            ensure_root(origin)?;
+            let source = T::Lookup::lookup(source)?;
+            let dest = T::Lookup::lookup(dest)?;
+            //type Currency -> transfer function
+            <Self as Currency>::transfer(
+                &source,
+                &dest,
+                value,
+                //can kill account
+                ExistenceRequirement::AllowDeath,
+            )
+            //???
+            Ok(().into())
+        }
         
         // 경원
         #[pallet::weight]
