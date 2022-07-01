@@ -47,10 +47,13 @@ pub mod pallet {
             let dest = T::Lookup::lookup(dest)?;
             //type Currency -> transfer function
             <Self as Currency>::transfer(
+                //reference
                 &source,
+                //reference
                 &dest,
+                //taking ownership b/c actual value are moving source account to dest?
                 value,
-                //can kill account
+                //can kill account <-> KeepAlive
                 ExistenceRequirement::AllowDeath,
             )
             //???
@@ -238,6 +241,14 @@ pub mod pallet {
         
         // 현택
         //make reference of accountId by Borrow Trait and check amount of free balance
+        //just checking, no need to take ownership -> so reference?
+        // pub trait Borrow<Borrowed> 
+        //    where
+        //    Borrowed: ?Sized, 
+        //    {
+        //    fn borrow(&self) -> &Borrowed;
+        //    }
+        //why using impl keyword? 
         pub fn free_balance(who: impl sp_std::Borrow:borrow<T::AccountId>) -> T::Balance {
             self.account(who.borrow()).free
         }
@@ -290,7 +301,24 @@ pub mod pallet {
         pub fn mutate_account<R>(who, f) -> Result<R, DispatchError> {}
 
         //현택
-        fn try_mutate_account<R, E: From<DispatchError>> (who, f) -> Result<R, E> {}
+        fn try_mutate_account<R, E: From<DispatchError>>(
+            who: &T::AccountId,
+            //pub trait FnOnce<Args> {
+            //    type Output;
+
+            //    extern "rust-call" fn call_once(self, args: Args) -> Self::Output;
+            //    }
+            //accept a parameter of function-like type and only need to call it once??
+            //closure and capturing reference
+            f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
+        ) -> Result<R, E> {
+            //iteralbe.map(|current_item(each individual item in the iterable)|) function(current_item)<-- applying function to each item of iteralbe>)
+            Self::try_mutate_account_with_dust(who, f).map(|(result, dust_cleaner)| {
+                drop(dust_cleaner);
+                result
+            })
+        }
+    
 
         // 소윤
         fn try_mutate_account_with_dust<R, E: From<DispatchError>>(
