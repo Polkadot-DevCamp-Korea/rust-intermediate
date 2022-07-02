@@ -62,7 +62,20 @@ pub mod pallet {
         
         // 경원
         #[pallet::weight]
-        pub fn transfer_keep_alive(origin, dest, value) {}
+        pub fn transfer_keep_alive(
+			origin: OriginFor<T>,
+			dest: <T::Lookup as StaticLookup>::Source,
+			#[pallet::compact] value: T::Balance,
+		) -> DispatchResultWithPostInfo {
+			// Ensure that the origin `o` represents a signed extrinsic (i.e. transaction)
+			// Returns `Ok` with the account that signed the extrinsic or an `Err` otherwise
+			let transactor = ensure_signed(origin)?;
+			// able to provide any compatible address format
+			let dest = T::Lookup::lookup(dest)?;
+			//returns Dispatchresult, check if account is still alive
+			<Self as Currency<_>>::transfer(&transactor, &dest, value, KeepAlive)?;
+			Ok(().into())
+		}
 
         // 혜민 
         #[pallet::weight]
@@ -266,7 +279,12 @@ pub mod pallet {
         pub fn reserved_balance(who) -> T::Balance {}
 
         // 경원
-        fn account(who) -> AccountData<T::Balance> {}
+        fn account(
+            who: &T::AccountId
+        ) -> AccountData<T::Balance> {
+            // get account data, or its default value
+            T::AccountStore::get(who)
+        }
 
         // 소윤 
         fn post_mutation(
@@ -359,7 +377,68 @@ pub mod pallet {
         fn update_locks(who, locks) {}
 
         // 경원
-        fn do_transfer_reserved(slashed, beneficiary, value, best_effort, status) -> Result<T::Balance, DispatchError> {}
+        fn do_transfer_reserved(
+            slashed: &T::AccountId,
+            beneficiary: &T::AccountId,
+            value: T::Balance,
+            best_effort: bool,
+            status: Status,
+        ) -> Result<T::Balance, DispatchError> {
+            //if value is zero, do nothing
+            if value.is_zero() {
+                return Ok(Zero::zero())
+            }
+            //if slashed account and beneficiary account are same
+            if slashed == beneficiary {
+                return match status {
+                    //change reserved value to free value
+                    Status::Free => Ok(Self::unreserve(slashed, value)),
+                    //do nothing
+                    Status::Reserved => Ok(value.saturating_sub(Self::reserved_balance(slashed))), 
+                }
+            }
+    
+            let ((actual, _maybe_one_dust), _maybe_other_dust) = Self::try_mutate_account_with_dust(
+                beneficiary,
+                |to_account, is_new| -> Result<(T::Balance, DustCleaner<T, I>), DispatchError> {
+                    //check if account to transfer is not dead
+                    ensure!(!is_new, Error::<T, I>::DeadAccount);
+                    Self::try_mutate_account_with_dust(
+                        slashed,
+                        |from_account, _| -> Result<T::Balance, DispatchError> {
+                            //check if reserved account has enough balance
+                            let actual = cmp::min(from_account.reserved, value); 
+                            ensure!(best_effort || actual == value, Error::<T, I>::InsufficientBalance); 
+                            match status {
+                                Status::Free =>
+                                    to_account.free = to_account
+                                        .free
+                                        //safemath
+                                        .checked_add(&actual)
+                                        .ok_or(ArithmeticError::Overflow)?,
+                                Status::Reserved =>
+                                    to_account.reserved = to_account
+                                        .reserved
+                                        //safemath
+                                        .checked_add(&actual)
+                                        .ok_or(ArithmeticError::Overflow)?,
+                            }
+                            //after adding value to to_account, subtract value from from_account
+                            from_account.reserved -= actual;
+                            Ok(actual)
+                        },
+                    )
+                },
+            )?;
+            //emit event, destination_status is status of destination account 
+            Self::deposit_event(Event::ReserveRepatriated {
+                from: slashed.clone(),
+                to: beneficiary.clone(),
+                amount: actual,
+                destination_status: status,
+            });
+            Ok(actual)
+        }
     }
 
     impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
