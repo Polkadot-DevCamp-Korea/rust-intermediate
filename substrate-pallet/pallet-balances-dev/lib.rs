@@ -33,16 +33,16 @@ pub mod pallet {
         pub fn set_balance(
             origin: OriginFor<T>, 
             who: <T::LookUp as StaticLookUp>::Source, 
-            #[pallet::compact] new_free: T::Balance, 
-            #[pallet::compact] new_reserved: T::Balance,
+            #[pallet::compact] new_free: T::Balance, // For memory efficiency,use #[pallet::compact]
+            #[pallet::compact] new_reserved: T::Balance, // For memory efficiency, use #[pallet::compact]
         ) -> DispatchResultWithPostInfo {
                 // check the origin === root
                 ensure_root(origin)?;
                 let who = T::LookUp::lookup(who)?;
-                let existential_deposit = T::ExistentialDeposit::get();
+                let existential_deposit = T::ExistentialDeposit::get(); // The minimum balance required to create or keep an account open.
 
                 // get current target and his balance
-                let wipeout = new_free + new_reserved < existential_deposit;
+                let wipeout: bool = new_free + new_reserved < existential_deposit;
                 let new_free = if wipeout {Zero::zero()} else {new_free};
                 let new_reseved = if wipeout {Zero::zero()} else {new_reserved};
 
@@ -57,17 +57,17 @@ pub mod pallet {
                     (old_free, old_reserved)
                 })?;
 
-                // change total issuance
+                // To-Do
+                // Change total issuance
                 if new_free >  old_free {
                     mem::drop(PositiveImbalance::<T, I>::new(new_free - old_free));
-                }else if new_free < old_free {
+                } else if new_free < old_free {
                     mem::drop(NegativeImbalance::<T, I>::new(old_free - new_free));
                 }
 
-
                 if new_reseved > old_reserved {
                     mem::drop(PositiveImbalance::<T, I>::new(new_reseved - old_reserved));
-                }else if new_reseved < old_reserved {
+                } else if new_reseved < old_reserved {
                     mem::drop(NegativeImbalance::<T, I>::new(old_reserved - new_reseved));
                 }
 
@@ -76,24 +76,26 @@ pub mod pallet {
                 Ok(().into())
             }
 
-        
         // 현택
-        #[pallet::weight]
+        #[pallet::weight(T::WeightInfo::force_transfer())]
         pub fn force_transfer(
-            //prelude of type Origin
+            // prelude of type Origin
             origin: OriginFor<T>,
-            //StaticLookup for handle multiple types of account address, convert to accountID
+            // StaticLookup for handle multiple types of account address, convert to accountID
             source: <T::LookUp as StaticLookUp>::Source,
             dest: <T::LookUp as StaticLookUp>::Source,
-            //encoding compact values
+            // encoding compact values
             #[pallet::compact] value: T::Balance,
-        //type Dispatchable + Result function + PostInfomation
-        ) -> DispatchResultwithPostInfo{
+        // type Dispatchable + Result function + PostInfomation
+        ) -> DispatchResultWithPostInfo {
+            
             //only root can call this function
             ensure_root(origin)?;
+
             let source = T::Lookup::lookup(source)?;
             let dest = T::Lookup::lookup(dest)?;
-            //type Currency -> transfer function
+            // type Currency -> transfer function
+
             <Self as Currency>::transfer(
                 //reference
                 &source,
