@@ -127,10 +127,24 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-        // 혜민 
-        #[pallet::weight]
-        pub fn transfer_all(origin, dest, keep_alive) {}
+        // 혜민...
+	// Transfer the entire transferable balance from the caller account
 
+	pub fn transfer_all( 
+		origin: OriginFor<T>,
+		dest :  <T::Lookup as StaticLookup>::Source,
+		keep_alive : bool,
+			// true : transfer everything except at least the existential deposit, which will guarantee to keep the sender account alive
+			// flase : sender account to be killed
+	) -> DispatchResult {
+		use fungible::Inspect;
+		let transactor = ensure_signed(origin)?;
+		let reducible_balance = Self::reducible_balance(&transactor, keep_alive);
+		let dest = T::Lookup::lookup(dest)?; // The recipient of the transfer
+		let keep_alive = if keep_alive { KeepAlive } else { AllowDeath };
+		<Self as Currency<_>>::transfer(&transactor, &dest, reducible_balance, keep_alive)?;
+		Ok(())
+	}
         // 소윤
         #[pallet::weight]
         pub fn force_unreserve(
@@ -363,8 +377,35 @@ pub mod pallet {
             }
         }
 
-        // 혜민
-        fn deposit_consequence(_who, amount, account, mint) -> DepositConsequence {}
+        // 혜민...
+	// fn deposit_consequence(_who, amount, account, mint) -> DepositConsequence {}
+	    
+	fn deposit_consequence(
+		
+	    _who: &T::AccountId,
+	    amount: T::Balance,
+	    account: &AccountData<T::Balance>,
+	    mint: bool,
+	
+	) -> DepositConsequence {
+	    if amount.is_zero() {
+		return DepositConsequence::Success
+	    }
+	    if mint && TotalIssuance::<T, I>::get().checked_add(&amount).is_none() {
+		return DepositConsequence::Overflow
+	    }
+	    let new_total_balance = match account.total().checked_add(&amount) {
+		Some(x) => x,
+		None => return DepositConsequence::Overflow,
+	    };
+	    if new_total_balance < T::ExistentialDeposit::get() {
+		return DepositConsequence::BelowMinimum
+	    }
+	    DepositConsequence::Success
+	}
+
+
+
 
         // 시완 
         fn withdraw_consequence(who, amount, account) -> WithdrawConsequnce<T::Balance> {}
