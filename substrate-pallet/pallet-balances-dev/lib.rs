@@ -128,30 +128,35 @@ pub mod pallet {
 		}
 
         // 혜민...
-	// Transfer the entire transferable balance from the caller account
+        // Transfer the entire transferable balance from the caller account
 
-	pub fn transfer_all( 
-		origin: OriginFor<T>,
-		dest :  <T::Lookup as StaticLookup>::Source,
-		keep_alive : bool,
-			// true : transfer everything except at least the existential deposit, which will guarantee to keep the sender account alive
-			// flase : sender account to be killed
-	) -> DispatchResult {
-		use fungible::Inspect;
-		let transactor = ensure_signed(origin)?;
-		let reducible_balance = Self::reducible_balance(&transactor, keep_alive);
-		let dest = T::Lookup::lookup(dest)?; // The recipient of the transfer
-		let keep_alive = if keep_alive { KeepAlive } else { AllowDeath };
-		<Self as Currency<_>>::transfer(&transactor, &dest, reducible_balance, keep_alive)?;
-		Ok(())
-	}
+        pub fn transfer_all( 
+            origin: OriginFor<T>,
+            dest :  <T::Lookup as StaticLookup>::Source,
+            keep_alive : bool,
+            // true : transfer everything except at least the existential deposit, which will guarantee to keep the sender account alive
+            // false : sender account to be killed
+        ) -> DispatchResult {
+
+            // Result<(), DispatchError>;
+            use fungible::Inspect;
+            let transactor = ensure_signed(origin)?;
+
+            let reducible_balance = Self::reducible_balance(&transactor, keep_alive); // 전체 balance 다 불러올거같은 느낌?
+            let dest = T::Lookup::lookup(dest)?; // The recipient of the transfer
+            let keep_alive = if keep_alive { KeepAlive } else { AllowDeath };
+            <Self as Currency<_>>::transfer(&transactor, &dest, reducible_balance, keep_alive)?;
+
+            Ok(())
+        }
         // 소윤
         #[pallet::weight]
-        pub fn force_unreserve(
+        pub fn force_unreserve (
             origin: OriginFor<T>, 
             who: <T::LookUp as StaticLookUp>::Source, 
             amount: T::Balance,
         ) -> DispatchResult {
+
             ensure_root(origin)?; // only sudo can call
             let who = T::LookUp::lookup(who)?;
             let _leftover = <Self as ReservableCurrency<_>>::unreserve(&who, amount)
@@ -366,6 +371,7 @@ pub mod pallet {
             // type ExistentialDeposit: Get<Self::Balance>;
 
             let total = new.total(); // Free + Reserved
+
             if total < T::ExistentialDeposit::get() {
                 if total.is_zero() {
                     (None, None)
@@ -389,17 +395,17 @@ pub mod pallet {
 	
 	) -> DepositConsequence {
 	    if amount.is_zero() {
-		return DepositConsequence::Success
+		    return DepositConsequence::Success
 	    }
 	    if mint && TotalIssuance::<T, I>::get().checked_add(&amount).is_none() {
-		return DepositConsequence::Overflow
+		    return DepositConsequence::Overflow
 	    }
 	    let new_total_balance = match account.total().checked_add(&amount) {
-		Some(x) => x,
-		None => return DepositConsequence::Overflow,
+		    Some(x) => x,
+		    None => return DepositConsequence::Overflow,
 	    };
 	    if new_total_balance < T::ExistentialDeposit::get() {
-		return DepositConsequence::BelowMinimum
+		    return DepositConsequence::BelowMinimum
 	    }
 	    DepositConsequence::Success
 	}
@@ -418,7 +424,7 @@ pub mod pallet {
             })
         }
 
-        //현택
+        // 현택
         fn try_mutate_account<R, E: From<DispatchError>>(
             who: &T::AccountId,
             //pub trait FnOnce<Args> {
@@ -448,9 +454,11 @@ pub mod pallet {
             // maybe_account => AccountData
             // account => AccountData
             let result = T::AccountStore.try_mutate_exists(who, |maybe_account| {
+   
                 let is_new = maybe_account.is_none(); // if account stored in AccountStore, False else True
                 let mut account = maybe_account.take().unwrap_or_default() // Default = Endowed account(pre-funded account). Most account would have no endowment
                 f(&mut account, is_new).map(move |result| {
+
                     let maybe_endowed = if is_new { Some(account.free) } else None;
                     let maybe_account_maybe_dust = Self::post_mutation(who, account); // If account is not dust, it would return account-data itself
                     *maybe_account = maybe_account_maybe_dust.0; // (AccountData, Dust). Change the value inside maybe_account after 'post_mutation' => None / account
@@ -471,6 +479,7 @@ pub mod pallet {
                 let dust_cleaner = DustCleaner(maybe_dust.map(|dust| (who.clone(), dust))) // DustCleaner = (Option<(AccountId, dust)>)
                 (result, dust_cleaner)
             })
+
         }
 
         // 혜민 
@@ -539,6 +548,10 @@ pub mod pallet {
             });
             Ok(actual)
         }
+    }
+
+    impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> {
+
     }
 
     impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
