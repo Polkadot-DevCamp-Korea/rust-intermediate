@@ -27,8 +27,53 @@ pub mod pallet {
 
         // 명하
         #[pallet::weight] 
-        pub fn set_balance(origin, who, new_free, new_reserved) {}
+        pub fn set_balance(
+            origin: OriginFor<T>, 
+            who: <T::LookUp as StaticLookUp>::Source, 
+            #[pallet::compact] new_free: T::Balance, 
+            #[pallet:compact] new_reserved: T::Balance,
+        ) {
+                // check the origin === root
+                ensure_root(origin)?;
+                let who = T::LookUp::lookup(who)?;
+                let existential_deposit = T::ExistentialDeposit::get();
 
+                // get current target and his balance
+                let wipeout = new_free + new_reserved < existential_deposit;
+                let new_free = if wipeout {Zero::zero()} else {new_free};
+                let new_reseved = if wipeout {Zero::zero()} else {new_reserved};
+
+                // calculate new free/reseved balance > existential deposit
+                let (old_free, old_reserved) = Self::mutate_account(&who, |account| {
+                    let old_free = account.free;
+                    let old_reserved = account.reseved;
+                    
+                    account.free = new_free;
+                    account.reserved - new_reserved;
+
+                    (old_free, old_reserved)
+                })?;
+
+                // change total issuance
+                if new_free >  old_free {
+                    mem::drop(PositiveImbalance::<T, I>::new(new_free - old_free));
+                }else if new_free < old_free {
+                    mem::drop(NegativeImbalance::<T, I>::new(old_free - new_free));
+                }
+
+
+                if new_reseved > old_reserved {
+                    mem::drop(PositiveImbalance::<T, I>::new(new_reseved - old_reserved));
+                }else if new_reseved < old_reserved {
+                    mem::drop(NegativeImbalance::<T, I>::new(old_reserved - new_reseved));
+                }
+
+                // trigger deposit event
+                Self::deposit_event(Event::BalacneSet {who, free:new_free, reseved:new_reserved });
+                Ok(().into())
+            }
+
+        
         // 현택
         #[pallet::weight]
         pub fn force_transfer(
@@ -267,7 +312,11 @@ pub mod pallet {
         }
 
         // 명하
-        pub fn usable_balance(who) -> T::Balance {}
+        pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+            // usable balance 가져오기
+            self.account(whoe.borrow()).usable(Reasons::Misc)
+
+        }
 
         // 소윤 
         pub fn usable_balance_for_fees(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
@@ -316,7 +365,12 @@ pub mod pallet {
         fn withdraw_consequence(who, amount, account) -> WithdrawConsequnce<T::Balance> {}
 
         // 명하
-        pub fn mutate_account<R>(who, f) -> Result<R, DispatchError> {}
+        // account의 balance 값을 업데이트. 기존에 있는 계정인지 헤크해야 함
+        pub fn mutate_account<R>(who:&T::AccountId, f: impl FnOnce(&mut AccountData<T::Balance> -> R)) -> Result<R, DispatchError> {
+            Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> {
+                Ok(f(a))
+            })
+        }
 
         //현택
         fn try_mutate_account<R, E: From<DispatchError>>(
