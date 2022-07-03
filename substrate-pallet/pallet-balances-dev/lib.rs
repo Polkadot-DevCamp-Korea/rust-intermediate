@@ -26,13 +26,16 @@ pub mod pallet {
         pub fn transfer(origin, dest) {}
 
         // 명하
-        #[pallet::weight] 
+        #[pallet::weight(
+            T::WeightInfo::set_balance_creating()
+            .max(T::WeightInfo::set_balance_killing())
+        )] 
         pub fn set_balance(
             origin: OriginFor<T>, 
             who: <T::LookUp as StaticLookUp>::Source, 
             #[pallet::compact] new_free: T::Balance, 
-            #[pallet:compact] new_reserved: T::Balance,
-        ) {
+            #[pallet::compact] new_reserved: T::Balance,
+        ) -> DispatchResultWithPostInfo {
                 // check the origin === root
                 ensure_root(origin)?;
                 let who = T::LookUp::lookup(who)?;
@@ -49,7 +52,7 @@ pub mod pallet {
                     let old_reserved = account.reseved;
                     
                     account.free = new_free;
-                    account.reserved - new_reserved;
+                    account.reserved = new_reserved;
 
                     (old_free, old_reserved)
                 })?;
