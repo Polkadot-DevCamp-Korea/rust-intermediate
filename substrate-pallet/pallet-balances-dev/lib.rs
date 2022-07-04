@@ -552,74 +552,126 @@ pub mod pallet {
 
     impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> {
 
+        type Balance = T::Balance;
+
+        fn total_issuance(who: &T::AccountId) -> Self::Balance {
+            TotalIssuance<T, I>::get()
+        }
+
+        fn minimum_balance() -> Self::Balance {
+            ExistentialDeposit<T, I>::get()
+        }
+
+        fn balance(who: &T::AccountId) -> Self::Balance {
+            Self::account(who).total()
+        }
+
+        fn reducible_balance(who: &T::AccountId, keep_alive: bool) -> Self::Balance {}
+
+        fn can_deposit(who: &T::AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {}
+
+        fn can_withdraw(who: &T::AccountId, amount: Self::Balance) -> WithdrawConsequnce {}
     }
 
     impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
         
-        fn mint_into(who, amount) {}
+        fn mint_into(who: &T::AccountId, amount: Self::Balance) -> DispatchResult {}
 
-        fn burn_from(who, amount) {}
+        fn burn_from(who: &T::AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {}
     }
 
     impl<T: Config<I>, I: 'static> fungible::Transfer<T::AccountId> for Pallet<T, I> {
 
-        fn transfer(source, dest, amount, keep_alive) {}
+        fn transfer(
+            source: &T::AccountId, 
+            dest: &T::AccountId, 
+            amount: T::Balance, 
+            keep_alive: bool
+        ) -> Result<T::Balance, DispatchError> {}
     }
 
     impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, I> {
 
-        fn set_balance(who, amount) {}
+        fn set_balance(who: &T::AccountId, amount: Self::Balance) -> DispatchResult {}
 
-        fn set_total_issuance(amount) {}
+        fn set_total_issuance(amount: Self::Balance) {}
     }
 
     impl<T: Config<I>, I: 'static> fungible::InspectHold<T::AccountId> for Pallet<T, I> {
 
-        fn balance_on_hold(who) {}
+        fn balance_on_hold(who: &T::AccountId) -> T::Balance {}
 
-        fn can_hold(who, amount) {}
+        fn can_hold(who: &T::AccountId, amount: T::Balance) -> bool {}
     }
 
     impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, I> {
 
-        fn hold(who, amount) {}
+        fn hold(who: &T::AccountId, amount: T::Balance) -> DispatchResult {}
 
-        fn release(who, amount, best_effor) {}
+        fn release(who: &T::AccountId, amount: Self::Balance, best_effor: bool) -> Result<T::Balance, DispatchError> {}
 
-        fn transfer_held(source ,dest, amount, best_effort, on_hold) {}
+        fn transfer_held(
+            source: &T::AccountId,
+            dest: &T::AccountId, 
+            amount: Self::Balance, 
+            best_effort: bool, 
+            on_hold: bool
+        ) -> Result<Self::Balance, DispatchError> {}
     }
 
     mod imbalances {}
 
     impl<T: Config<I>, I: 'static> Currency<T::AccountId> for Pallet<T, I> 
     where T::Balacne: MaybeSerialzeDeseralize + Debug,
-    {
-        fn total_balance(who) {}
+    {   
+        // Associated Types
+        type Balance = T::Balance;
+        type PositiveImbalance = PositiveImbalance<T, I>;
+        type NegativeImabalance = NegativeImabalance<T, I>;
 
-        fn can_slash(who, value) {}
+        fn total_balance(who: &T::AccountId) -> Self::Balance {
+            Self::account(who).total()
+        }
 
-        fn total_issuance() {}
+        fn free_balance(who: &T::AccountId) {
+            Self::account(who).free()
+        }
 
-        fn minimum_balance() {}
+        fn can_slash(who, value) -> bool {}
 
+        fn total_issuance() -> Self::Balance {
+            <TotalIssuance<T,I>>::get()
+        }
+
+        fn minimum_balance() -> Self::Balance {
+            <ExistentialDeposit<T, I>>::get()
+        }
+
+        // 혜민
         fn burn(mut amount) {}
 
+        // 현택
         fn issue(mut amount) {}
 
-        fn free_balance(who) {}
-
+        // 명하
         fn ensure_can_withdraw(who, amount, reasons, new_balance) {}
 
+        // 소윤
         fn transfer(transactor, dest, value, existence_requirement) {}
-
+        
+        // 소윤
         fn slash(who, value) {} 
 
+        // 경원
         fn deposit_into_existing(who, value) {}
 
+        // 현택
         fn deposit_creating(who, value) {}
 
+        // 명하
         fn withdraw(who, value, reasons, liveness) {}
 
+        // 경원
         fn make_free_balance_be(who, value) {}
     }
 
