@@ -694,7 +694,47 @@ pub mod pallet {
         fn deposit_into_existing(who, value) {}
 
         // 현택
-        fn deposit_creating(who, value) {}
+        /// Deposit some `value` into the free balance of `who`, possibly creating a new account.
+        ///
+        /// This function is a no-op if:
+        /// - the `value` to be deposited is zero; or
+        /// - the `value` to be deposited is less than the required ED and the account does not yet
+        ///   exist; or
+        /// - the deposit would necessitate the account to exist and there are no provider references;
+        ///   or
+        /// - `value` is so large it would cause the balance of `who` to overflow.
+        fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
+            /// - the `value` to be deposited is zero;
+            if value.is_zero() {
+                return Self::PositiveImbalance::zero()
+            }
+
+            Self::try_mutate_account(
+                who,
+                |account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
+                    let ed = T::ExistentialDeposit::get();
+                    /// - the `value` to be deposited is less than the required ED
+                    /// - the deposit would necessitate the account to exist
+                    ensure!(value >= ed || !is_new, Error::<T, I>::ExistentialDeposit);
+
+                    // defensive only: overflow should never happen,
+                    // b/c checked_add i think
+                    // however in case it does -> ??, 
+                    // then this operation is a no-op.
+                    // maybe value is so large cause balance overflow?
+                    // depositing value in account.free
+                    account.free = match account.free.checked_add(&value) {
+                        Some(x) => x,
+                        //there are no provider references
+                        None => return Ok(Self::PositiveImbalance::zero()),
+                    };
+
+                    Self::deposit_event(Event::Deposit { who: who.clone(), amount: value });
+                    Ok(PositiveImbalance::new(value))
+                },
+            )
+            .unwrap_or_else(|_| Self::PositiveImbalance::zero())
+        }
 
         // 명하
         fn withdraw(who, value, reasons, liveness) {}
