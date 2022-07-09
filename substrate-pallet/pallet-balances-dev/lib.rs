@@ -650,8 +650,36 @@ pub mod pallet {
         // 혜민
         fn burn(mut amount) {}
 
-        // 현택
-        fn issue(mut amount) {}
+    // Create new funds into the total issuance, returning a negative imbalance
+	// for the amount issued.
+	fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
+		if amount.is_zero() {
+			return NegativeImbalance::zero()
+		}
+		//pub fn mutate<R, F: FnOnce(&mut QueryKind::Query) -> R>(f: F) -> R {
+		//	<Self as crate::storage::StorageValue<Value>>::mutate(f)
+		//}
+		//came from TotalIssuance -> StorageValue -> impl method
+		//mutate the value 
+		<TotalIssuance<T, I>>::mutate(|issued| {
+			//Checked integer addition. Computes self + rhs, returning None if overflow occurred
+			//issued = existing issued + amount
+			//amount = Balance::max_value - existing issued
+			*issued = issued.checked_add(&amount).unwrap_or_else(|| {
+				//amount = Balance::max_value - existing issued
+				amount = Self::Balance::max_value() - *issued;
+				Self::Balance::max_value()
+			})
+		});
+	//NegatvieImbalance 
+	//Opaque, move-only struct with private fields that serves as a token denoting 
+	//that funds have been destroyed without any equal and opposite accounting.
+	/// Create a new negative imbalance from a balance.
+	//	pub fn new(amount: T::Balance) -> Self {
+	//		NegativeImbalance(amount)
+	//	}
+		NegativeImbalance::new(amount)
+	}
 
         // 명하
         fn ensure_can_withdraw(who, amount, reasons, new_balance) {}
