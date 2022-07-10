@@ -625,10 +625,10 @@ pub mod pallet {
     where T::Balacne: MaybeSerialzeDeseralize + Debug,
     {   
         // Associated Types
-        type Balance = T::Balance;
+        type Balance = T::Balance; 
         type PositiveImbalance = PositiveImbalance<T, I>;
         type NegativeImabalance = NegativeImabalance<T, I>;
-
+        
         fn total_balance(who: &T::AccountId) -> Self::Balance {
             Self::account(who).total()
         }
@@ -637,7 +637,16 @@ pub mod pallet {
             Self::account(who).free()
         }
 
-        fn can_slash(who, value) -> bool {}
+        fn can_slash(
+            who: &T::AccountId, 
+            value: Self::Balance,
+        ) -> bool {
+            if value.is_zero() {
+                return true
+            }
+
+            Self::free_balance(who) >= value 
+        }
 
         fn total_issuance() -> Self::Balance {
             <TotalIssuance<T,I>>::get()
@@ -645,6 +654,7 @@ pub mod pallet {
 
         fn minimum_balance() -> Self::Balance {
             <ExistentialDeposit<T, I>>::get()
+            // KeepAlive / AllowDeath
         }
 
         // 혜민
@@ -671,7 +681,7 @@ pub mod pallet {
                     Self::Balance::max_value()
                 })
             });
-            
+
         //NegatvieImbalance 
         //Opaque, move-only struct with private fields that serves as a token denoting 
         //that funds have been destroyed without any equal and opposite accounting.
