@@ -726,6 +726,7 @@ pub mod pallet {
 
                             let allow_death = existence_requirement == ExistenceRequirement::AllowDeath;
                             let allow_death = allow_death && system::Pallet::<T>::can_dec_provider(transactor);
+                            
                             // Account should be dead or greater than ed
                             ensure!(
                                 allow_death || from_account.total() >= ed, 
@@ -748,7 +749,68 @@ pub mod pallet {
         }
         
         // 소윤
-        fn slash(who, value) {} 
+        fn slash(
+            who: &T::AccountId, 
+            value: Self::Balance
+        ) -> (Self::NegativeImabalance, Self::Balance) {
+
+            if value.is_zero() {
+                return (NegativeImablance::zero(), Zero::zero())
+            }
+
+            if Self::total_balance(who).is_zero() {
+                return (NegativeImabalance::zero(), value)
+            }
+
+            for attempt in 0..2 {
+                match Self::try_mutate_account(
+                    who,
+                    // NegativeImbalance: Amount of slashed balance, Balance: Amount of not-slashed balance
+                    |account, _| -> Result<(Self::NegativeImbalance, Self::Balance), DispatchError> {
+                        let best_value = match attempt {
+                            // If it is first try, slash the full value
+                            0 => value
+                            // Else min(value, account.free + account.reserved - ed)
+                            _ => value
+                                 .min(account.free + account.reserved)
+                                 .saturating_sub(T::ExistentialDeposit::get())
+                        }
+                    };
+
+                    let free_slash = cmp::min(account.free, best_value);
+                    account.free -= free_slash;
+                    // if account.free < best_value, it would remain some balance
+                    // else, remaining_slash = Zero::zero()
+                    let remaining_slash = best_value - free_slash; 
+                    if !remaning_slash.is_zero() {
+
+                        // If there is remaining slash, take from reserved balance
+                        let reserved_slash = cmp::min(account.reserved, remaining_slash);
+                        account.reserved -= reserved_slash;
+                        Ok((
+                            NegativeImabalance::new(free_slash + reserved_slash), 
+                            value - free_slash - reserved_slash
+                        ))
+                    } else {
+
+                        Ok((NegativeImabalance::new(free_slash), value - free_slash))
+                    }
+                ) {
+                    Ok((imbalance, not_slashed)) => {
+                        // Emit slash event
+                        Self::deposit_event(Event::Slashed {
+                            who: who.clone(),
+                            amount: value.saturating_sub(not_slashed)
+                        });
+                        return (imbalance, not_slashed)
+                    }
+
+                    Err(_) => (), // increase attempt
+                }
+
+                (Self::NegativeImablance::zero(), value)
+            }            
+        } 
 
         // 경원
         fn deposit_into_existing(
