@@ -691,7 +691,27 @@ pub mod pallet {
         fn slash(who, value) {} 
 
         // 경원
-        fn deposit_into_existing(who, value) {}
+        fn deposit_into_existing(
+            who: &T::AccountId,
+            value: Self::Balance,
+        ) -> Result<Self::PositiveImbalance, DispatchError> {
+            //if value is zero, do nothing
+            if value.is_zero() {
+                return Ok(PositiveImbalance::zero());
+            }
+        
+            Self::try_mutate_account(
+                who,
+                |account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
+                    //check if account is not new
+                    ensure!(!is_new, Error::<T, I>::DeadAccount);
+                    //add value to free balance
+                    account.free = account.free.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
+                    Self::deposit_event(Event::Deposit { who: who.clone(), amount: value});
+                    Ok(PositiveImbalance::new(amount: value))
+                },
+            )
+        }
 
         // 현택
         /// Deposit some `value` into the free balance of `who`, possibly creating a new account.
@@ -740,7 +760,38 @@ pub mod pallet {
         fn withdraw(who, value, reasons, liveness) {}
 
         // 경원
-        fn make_free_balance_be(who, value) {}
+        fn make_free_balance_be(
+            who = &T::AccountId, 
+            value = Self::balance,
+        ) -> SignedImbalance<Self::Balance, Self::PositiveImbalance>{
+            Self::try_mutate_account(
+                who,
+                |account,
+                 is_new|
+                 -> Result<SignedImbalance<Self::Balance, Self::PositiveImbalance>, DispatchError> {
+                    let ed = T::ExistentialDeposit::get();
+                    //total = value + reserved
+                    let total = value.saturating_add(account.reserved);
+        
+                    // if < ED, return Error -> unwrap_or_else(|DispatchError| SignedImbalance::Positive(Self::PositiveImbalance::zero()))
+                    ensure!(total >= ed || !is_new, Error::<T, I>::ExistentialDeposit);
+        
+                    let imbalance = if account.free <= value {
+                        SignedImbalance::Positive(PositiveImbalance::new(value - account.free))
+                    } else {
+                        SignedImbalance::Negative(NegativeImbalance::new(account.free - value))
+                    };
+                    account.free = value;
+                    Self::deposit_event(Event::BalanceSet {
+                        who: who.clone(),
+                        free: account.free,
+                        reserved: account.reserved,
+                    });
+                    Ok(imbalance)
+                },
+            )
+            .unwrap_or_else(|_| SignedImbalance::Positive(Self::PositiveImbalance::zero()))
+        }
     }
 
     impl<T: Config<I>, I: 'static> ReservableCurrency<T::AccountId> for Pallet<T, I> {
