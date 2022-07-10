@@ -682,7 +682,19 @@ pub mod pallet {
 	}
 
         // 명하
-        fn ensure_can_withdraw(who, amount, reasons, new_balance) {}
+        fn ensure_can_withdraw(
+            who: &T::AccountId,
+             amount: T::Balance,
+              reasons:WithdrawReasons, 
+              new_balance: T::Balance,
+            ) -> DispatchResult {
+                if amount.is_zero() {
+                    return Ok(())
+                }
+                let min_balance = Self::account(who).frozen(reasons.into());
+                ensure!(new_balance >= min_balance, Error::<T, I>::LiquidityRestrictions);
+                Ok(())
+            }
 
         // 소윤
         fn transfer(
@@ -817,7 +829,33 @@ pub mod pallet {
         }
 
         // 명하
-        fn withdraw(who, value, reasons, liveness) {}
+        fn withdraw(who: &T::AccountId, 
+            value:Self::Balacne, 
+            reasons: WithdrawReasons, 
+            liveness:ExistenceRequirement,
+        ) -> result::Result<Self::NegativeImabalance, DispatchError> {
+            if value.is_zero() {
+                return Ok(NegativeImabalance::zero())
+            }
+
+            Self::try_mutate_account(who, 
+                |account, _| -> Result<Self::NegativeImabalance, DispatchError> {
+                    let new_free_account = account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+                    lef ed = T::ExistentialDeposit::get();
+                    let would_be_dead = new_free_account + account.reserved < ed;
+                    let would_kill = would_be_dead && account.free + account.reserved >= ed;
+                    ensure!(liveness == AllowDeath || !would_kill, Error::<T, I>::KeepAlive);
+
+                    Self::ensure_can_withdraw(who, value, reasons, new_free_account)?;
+
+                    account.free = new_free_account;
+
+                    Self::deposit_event(Event::Withdraw {who: who.clone(), amount: value});
+                    Ok(NegativeImabalance::new(value))
+                },
+            )
+        }
 
         // 경원
         fn make_free_balance_be(
