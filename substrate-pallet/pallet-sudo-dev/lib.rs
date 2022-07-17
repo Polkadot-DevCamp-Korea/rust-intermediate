@@ -33,7 +33,19 @@ pub mod pallet {
         pub fn sudo() -> DispatchResultWithPostInfo {}
 
         // 경원
-        pub fn sudo_unchecked_weight() -> DispatchResultWithPostInfo {}
+        pub fn sudo_unchecked_weight(
+            origin: OriginFor<T>,
+            call: Box<<T as Config>::Call>,
+            //specifying weight
+            _weight: Weight,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+			ensure!(Self::key().map_or(false, |k| sender == k), Error::<T>::RequireSudo);
+
+            let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			Self::deposit_event(Event::Sudid { sudo_result: res.map(|_| ()).map_err(|e| e.error) });
+			Ok(Pays::No.into())
+        }
 
         // 명하
         #[pallet::weight(0)] // limits storage resource
