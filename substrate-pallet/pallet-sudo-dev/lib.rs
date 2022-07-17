@@ -1,3 +1,29 @@
+
+/*
+Discription
+
+Helpful method
+
+1. dispatch_bypass_filter(
+    self, 
+    origin: Self::Origin
+) -> DispatchResultWithPostInfo
+
+- Dispatch this call but do not check the filter in origin
+
+Result Type 
+
+1. DispatchResultPostInfo
+
+- 
+
+Rust Syntax
+
+call: Box<<T as Config>::Call>
+
+- Since we don't know exact size of the call, put call type into Box type, which is 'heap'
+*/
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_runtime::{traits::StaticLookup, DispatchResult};
@@ -30,7 +56,23 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         
         // 소윤
-        pub fn sudo() -> DispatchResultWithPostInfo {}
+        pub fn sudo(
+            origin: OriginFor<T>,
+            call: Box<<T as Config>::Call>
+        ) -> DispatchResultWithPostInfo {
+            
+            let sender = ensured_signed!(origin)?; // if ok, return T::AccountId
+            // check whether sender is sudo
+            ensure!(Self::key.map_or(false, |key| sender == key), Error::<T>::RequireSudo);
+
+            let result = call.dispatch_bypass_filter(
+                                                        frame_system::RawOrigin::Root.into()
+                                                    );
+            Self::deposit_event(Event::Sudid {result.map(|| ()).map_err(|e| e.error)});
+
+            // Sudo does not pay a fee.
+            Ok(Pays::No.into())
+        }
 
         // 경원
         pub fn sudo_unchecked_weight(
