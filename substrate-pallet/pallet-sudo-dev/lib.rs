@@ -91,7 +91,7 @@ pub mod pallet {
 
         // 명하
         #[pallet::weight(0)] // limits storage resource
-        pub set_key(
+        pub fn set_key(
             origin: OriginFor<T>,
             new: <T::LookUp as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
@@ -116,7 +116,37 @@ pub mod pallet {
         }
 
         // 현택
-        pub fn sudo_as() -> DispatchResultWithPostInfo {}
+        //A non-privileged function will work when passed to `sudo_as` with the root `key`
+        //why use sudo_as? -> to send a free transaction maybe?
+        pub fn sudo_as(
+            origin: OriginFor<T>
+            who: <T::Lookup as StaticLookup>::Source,
+            call: Box<<T as Config>>::Call,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+            
+            
+            //does have root key && it is sender?
+            ensure!(Self::key().map_or(false, |k| sender == k), Error::<T>::RequireSudo);
+
+            let who = T::Lookup::lookup(who)?;
+
+            /// Dispatch this call but do not check the filter in origin.
+	        ///fn dispatch_bypass_filter(self, origin: Self::Origin) -> DispatchResultWithPostInfo;
+            ///    pub enum RawOrigin<AccountId> {
+            ///        Root,
+            ///        Signed(AccountId),
+            ///        None,
+            ///   }
+            let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Signed(who).into());
+
+            Self::deposit_event(Event::SudoAsDone {
+                sudo_result: res.map(|_| ()).map_err(|e| e.error),
+            });
+            Ok(Pays::No.into())
+
+
+        }
     }
 
     #[pallet::event]
