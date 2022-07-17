@@ -338,7 +338,7 @@ pub mod pallet {
         // 명하
         pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
             // usable balance 가져오기
-            self.account(whoe.borrow()).usable(Reasons::Misc)
+            self.account(who.borrow()).usable(Reasons::Misc)
 
         }
 
@@ -720,10 +720,10 @@ pub mod pallet {
             }
 
             Self::try_mutate_account_with_dust(
-                dest,
+                dest, // receiver
                 |to_account, _| -> Result<DustCleaner<T, I>, DispatchError> {
                     Self::try_mutate_account_with_dust(
-                        transactor,
+                        transactor, // sender 
                         |from_account, _| -> DispatchResult {
                             
                             from_account.free = from_account  
@@ -734,7 +734,7 @@ pub mod pallet {
                             to_account.free = to_account   
                                               .free()
                                               .checked_add(value)
-                                              .ok_or(Error::<T,I>::Overflow)?;
+                                              .ok_or(ArithmeticError::Overflow)?;
 
                             let ed = ExistentialDeposit::get();
                             ensure!(to_account.total >= ed, Error::<T,I>::ExistentialDeposit)
@@ -758,7 +758,7 @@ pub mod pallet {
 
                             Ok(())
                         },
-                    ).map(|_, maybe_dust_cleaner| maybe_dust_cleaner)
+                    ).map(|_ , maybe_dust_cleaner | maybe_dust_cleaner)
                 }
             )?;
 
@@ -795,16 +795,17 @@ pub mod pallet {
                             0 => value
                             // Else min(value, account.free + account.reserved - ed)
                             _ => value
-                                 .min(account.free + account.reserved)
-                                 .saturating_sub(T::ExistentialDeposit::get())
+                                    .min(account.free + account.reserved)
+                                    .saturating_sub(T::ExistentialDeposit::get())
+                                )
                         }
                     };
 
-                    let free_slash = cmp::min(account.free, best_value);
+                    let free_slash = cmp::min(account.free, best_value );
                     account.free -= free_slash;
                     // if account.free < best_value, it would remain some balance
                     // else, remaining_slash = Zero::zero()
-                    let remaining_slash = best_value - free_slash; 
+                    let remaining_slash = best_value - free_slash; -> 0         
                     if !remaning_slash.is_zero() {
 
                         // If there is remaining slash, take from reserved balance
@@ -915,7 +916,7 @@ pub mod pallet {
                 |account, _| -> Result<Self::NegativeImabalance, DispatchError> {
                     let new_free_account = account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 
-                    lef ed = T::ExistentialDeposit::get();
+                    let ed = T::ExistentialDeposit::get();
                     let would_be_dead = new_free_account + account.reserved < ed;
                     let would_kill = would_be_dead && account.free + account.reserved >= ed;
                     ensure!(liveness == AllowDeath || !would_kill, Error::<T, I>::KeepAlive);
@@ -925,7 +926,7 @@ pub mod pallet {
                     account.free = new_free_account;
 
                     Self::deposit_event(Event::Withdraw {who: who.clone(), amount: value});
-                    Ok(NegativeImabalance::new(value))
+                    Ok(NegativeImbalance::new(value))
                 },
             )
         }
