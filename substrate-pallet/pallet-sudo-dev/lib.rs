@@ -36,7 +36,30 @@ pub mod pallet {
         pub fn sudo_unchecked_weight() -> DispatchResultWithPostInfo {}
 
         // 명하
-        pub set_key() -> DispatchResultWithPostInfo {}
+        #[pallet::weight(0)] // limits storage resource
+        pub set_key(
+            origin: OriginFor<T>,
+            new: <T::LookUp as StaticLookup>::Source,
+        ) -> DispatchResultWithPostInfo {
+
+            // check origin
+            let sender = ensure_signed(origin)?;
+
+            // get current key, compare to sender
+            ensure!(Self::key().map_or(false, |k| sender == k), Error::<T>::RequireSudo);
+            
+            // get new key
+            let new = T::Lookup::lookup(new)?;
+
+            // emit change event
+            Self::deposit_event(Event::KeyChanged {old_sudoer: Key::<T>::get()});
+            
+            // update key
+            Key::<T>::put(&new);
+
+            // return ok without fee
+            Ok(Pays::No.into());
+        }
 
         // 현택
         pub fn sudo_as() -> DispatchResultWithPostInfo {}
@@ -54,7 +77,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
 
-        RequireSuod,
+        RequireSudo,
     }
 
     #[pallet::storage]
