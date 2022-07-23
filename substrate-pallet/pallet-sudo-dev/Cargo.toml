@@ -1,0 +1,26 @@
+
+[package]
+name = "pallet-sudo-dev"
+version = "0.1.0"
+authors = ["SoYounJeong"]
+edition = "2021"
+
+[dependencies]
+
+frame-system = {git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
+
+[features]
+default = ["std"]
+std = [
+    "sp-std/std",
+    "sp-runtime/std",
+    "parity-scale-codec/std",
+    "scale-info/std",
+    "frame-system/std",
+    "frame-support/std"
+]

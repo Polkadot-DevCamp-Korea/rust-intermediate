@@ -41,10 +41,14 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 
+    use super::{DispatchResult, *};
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
+
     #[pallet::config]
     pub trait Config: frame_system::Config {
         
-        type Event: From<Event<Self>> + IsType<Self as frame_system::Config>::Event;
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
     }
 
@@ -56,25 +60,32 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         
         // 소윤
+        #[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(dispatch_info.weight.saturating_add(10_000), dispatch_info.class)
+		})]
         pub fn sudo(
             origin: OriginFor<T>,
             call: Box<<T as Config>::Call>
         ) -> DispatchResultWithPostInfo {
             
-            let sender = ensured_signed!(origin)?; // if ok, return T::AccountId
+            let sender = ensure_signed(origin)?; // if ok, return T::AccountId
             // check whether sender is sudo
-            ensure!(Self::key.map_or(false, |key| sender == key), Error::<T>::RequireSudo);
+            ensure!(Self::key().map_or(false, |key| sender == key), Error::<T>::RequireSudo);
 
             let result = call.dispatch_bypass_filter(
                                                         frame_system::RawOrigin::Root.into()
                                                     );
-            Self::deposit_event(Event::Sudid {result.map(|| ()).map_err(|e| e.error)});
+            Self::deposit_event(
+                                    Event::Sudid { sudo_result: result.map(|_| ()).map_err(|e| e.error) }
+                                );
 
             // Sudo does not pay a fee.
             Ok(Pays::No.into())
         }
 
         // 경원
+        #[pallet::weight((*_weight, call.get_dispatch_info().class))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<<T as Config>::Call>,
@@ -93,7 +104,7 @@ pub mod pallet {
         #[pallet::weight(0)] // limits storage resource
         pub fn set_key(
             origin: OriginFor<T>,
-            new: <T::LookUp as StaticLookup>::Source,
+            new: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
 
             // check origin
@@ -112,16 +123,26 @@ pub mod pallet {
             Key::<T>::put(&new);
 
             // return ok without fee
-            Ok(Pays::No.into());
+            Ok(Pays::No.into())
         }
 
         // 현택
         //A non-privileged function will work when passed to `sudo_as` with the root `key`
         //why use sudo_as? -> to send a free transaction maybe?
+        #[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(
+				dispatch_info.weight
+					.saturating_add(10_000)
+					// AccountData for inner call origin accountdata.
+					.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
+				dispatch_info.class,
+			)
+		})]
         pub fn sudo_as(
-            origin: OriginFor<T>
+            origin: OriginFor<T>,
             who: <T::Lookup as StaticLookup>::Source,
-            call: Box<<T as Config>>::Call,
+            call: Box<<T as Config>::Call>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             
@@ -131,13 +152,13 @@ pub mod pallet {
 
             let who = T::Lookup::lookup(who)?;
 
-            /// Dispatch this call but do not check the filter in origin.
-	        ///fn dispatch_bypass_filter(self, origin: Self::Origin) -> DispatchResultWithPostInfo;
-            ///    pub enum RawOrigin<AccountId> {
-            ///        Root,
-            ///        Signed(AccountId),
-            ///        None,
-            ///   }
+            // Dispatch this call but do not check the filter in origin
+	        // fn dispatch_bypass_filter(self, origin: Self::Origin) -> DispatchResultWithPostInfo;
+            // pub enum RawOrigin<AccountId> {
+            //     Root,
+            //     Signed(AccountId),
+            //     None,
+            // }
             let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Signed(who).into());
 
             Self::deposit_event(Event::SudoAsDone {
@@ -154,7 +175,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
 
         Sudid { sudo_result: DispatchResult},
-        KeyChanged { old_sudoer: Option<T::AccountId>}
+        KeyChanged { old_sudoer: Option<T::AccountId>},
         SudoAsDone { sudo_result: DispatchResult},
     }
 
@@ -170,7 +191,7 @@ pub mod pallet {
                                                     _, 
                                                     T::AccountId, 
                                                     OptionQuery
-                                    >
+                                                 >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
